@@ -20,6 +20,9 @@ module.exports = (robot) ->
     # robot.hear /list/i, (res) ->
     #     res.send "No meetups for " + res.message.user.name
 
+    robot.respond /привет!/, (res) ->
+        res.send "Приветствую! Меня зовут Мартин, и я помогу вам зарегистрирвоаться на сегодняшний Нечетный четврег. Если вы хотите придти, просто скажите мне: \"Мартин, я иду\" и я тут же запишу вас в список гостей. Если вы передумаете, тогда скажите: \"Мартин, я не иду\", и я отдам ваше место кому-то другому. Список гостей, как всегда, можно увидеть на сайте sabantuy.koal.me. Удачи!"
+
     robot.respond /(я )?иду/i, (res) ->
         guestName = res.message.user.name
         guestId = res.message.user.id
