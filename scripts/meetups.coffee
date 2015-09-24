@@ -12,6 +12,8 @@ module.exports = (robot) ->
     client = Redis.createClient()
     PREFIX = 'thursday'
     GUESTS_SET = "#{PREFIX}:guests"
+    GUESTS_IMAGES_HASH = "#{PREFIX}:images"
+    SLACK_API_TOKEN = process.env.SLACK_API_TOKEN
 
     okays = ['Хорошо', 'Ясно', 'Добро']
 
@@ -19,17 +21,26 @@ module.exports = (robot) ->
     #     res.send "No meetups for " + res.message.user.name
 
     robot.respond /(я )?иду/i, (res) ->
-        guest = res.message.user.name
-        client.sismember GUESTS_SET, guest, (err, reply) ->
-            client.sadd GUESTS_SET, guest, (err) ->
+        guestName = res.message.user.name
+        guestId = res.message.user.id
+
+        client.sismember GUESTS_SET, guestName, (err, reply) ->
+            robot.http("https://slack.com/api/users.info?" +
+                "token=#{SLACK_API_TOKEN}" +
+                "&user=#{guestId}&pretty=1")
+                .get() (err, res, body) ->
+                    response = JSON.parse body
+                    image = response.user.profile.image_192
+                    client.hset GUESTS_IMAGES_HASH, guestName, image
+            client.sadd GUESTS_SET, guestName, (err) ->
                 res.send res.random okays
 
     robot.respond /(я )?не иду/i, (res) ->
-        guest = res.message.user.name
-        client.srem GUESTS_SET, guest, (err, reply) ->
+        guestName = res.message.user.name
+        client.srem GUESTS_SET, guestName, (err, reply) ->
             res.send res.random okays
 
-    robot.respond /кто идет/i, (res) ->
+    robot.respond /кто ид(е|ё)т/i, (res) ->
         client.smembers GUESTS_SET, (err, reply) ->
             switch reply.length
                 when 0 then res.send "Пока никто не идет"
