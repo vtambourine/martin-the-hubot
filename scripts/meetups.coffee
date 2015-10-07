@@ -52,5 +52,3 @@ module.exports = (robot) ->
                     # list = reply.map (name) -> "@#{name}"
                     res.send "Идут " + reply[0...-1].join(', ') +
                         " и " + reply[reply.length - 1]
-
-    robot.respond /аа/
