@@ -56,8 +56,8 @@ module.exports = (robot) ->
                         " и " + reply[reply.length - 1]
 
     robot.respond /предлагаю/i, (res) ->
-        [_, place] = robot.respond.match(/предлагаю (.*)/)
-        client.sadd PLACES_SET, place, (err) ->
+        [_, place] = res.message.match /предлагаю(.*)/
+        client.sadd PLACES_SET, place.trim(), (err) ->
             res.send res.random confirmation
 
     robot.respond /куда ид(е|ё)м/i, (res) ->
@@ -65,4 +65,4 @@ module.exports = (robot) ->
             switch reply.length
                 when 0 then res.send "Пока у меня нет идей!"
                 when 1 then res.send "Кто-то предложил - #{reply[0]}"
-                else res.send "Есть предложения посетить следующие места:\n#{ reply.map((place) -> "- #{place} \n") }"
+                else res.send "Есть предложения посетить следующие места:\n#{ reply.map((place) -> "- #{place}").join("\n") }"
