@@ -3,6 +3,10 @@
 #
 # Commands:
 #   hubot я иду - Записаться на Четверг
+#   hubot я не иду - Удалить себя из списка гостей
+#   hubot кто идет?  - Показать список гостей
+#   hubot предлагаю Место  - Добавить запись в список возможных мест для посещения
+#   hubot куда идем?  - Показать список предложенных мест
 #
 # Notes:
 
@@ -18,6 +22,8 @@ module.exports = (robot) ->
 
     okays = ['Хорошо', 'Ясно', 'Добро']
     confirmation = ['Помедленнее, я записываю... Записал!', 'Принято!', 'Добавлено в список!']
+    reject = ['К сожалению, я не смог найти это место в списке :(']
+    add_one = ['+1', 'Добавил!', 'Инкрементировал!']
 
     # robot.hear /list/i, (res) ->
     #     res.send "No meetups for " + res.message.user.name
@@ -57,12 +63,32 @@ module.exports = (robot) ->
 
     robot.respond /предлагаю/i, (res) ->
         [_, place] = res.message.match /предлагаю(.*)/
-        client.sadd PLACES_SET, place.trim(), (err) ->
-            res.send res.random confirmation
+        place_name = place.trim().toLowerCase()
+        client.zscore [PLACES_SET, place_name], (err, count) ->
+          count = if count then parseInt(count) + 1 else 1
+          client.zadd [PLACES_SET, count, place_name], (err) ->
+              res.send res.random confirmation
+
+    robot.respond /(я )?за/i, (res) ->
+        [_, place] = res.message.match /за(.*)/
+        place_name = place.trim().toLowerCase()
+        client.zscore [PLACES_SET, place_name], (err, count) ->
+          if count
+            client.zadd [PLACES_SET, parseInt(count) + 1, place_name], (err) ->
+                res.send res.random add_one
+          else
+            res.send reject
 
     robot.respond /куда ид(е|ё)м/i, (res) ->
-        client.smembers PLACES_SET, (err, reply) ->
-            switch reply.length
+        params = [ PLACES_SET, '+inf', '-inf', 'WITHSCORES']
+        client.zrevrangebyscore params, (err, reply) ->
+            group_by_score = []
+            reply.map (elem, i) ->
+              if (i + 1) % 2
+                place_name = reply[i][0].toUpperCase() + reply[i][1..-1]
+                votes = reply[i+1]
+                group_by_score.push([place_name, votes])
+            switch group_by_score.length
                 when 0 then res.send "Пока у меня нет идей!"
-                when 1 then res.send "Кто-то предложил - #{reply[0]}"
-                else res.send "Есть предложения посетить следующие места:\n#{ reply.map((place) -> "- #{place}").join("\n") }"
+                when 1 then res.send "Кто-то предложил - #{group_by_score[0][0]}(#{ group_by_score[0][1] })"
+                else res.send "Есть предложения посетить следующие места:\n#{ group_by_score.map((place) -> "#{place[1]}: #{place[0]}").join("\n") }"
