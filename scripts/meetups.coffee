@@ -13,9 +13,11 @@ module.exports = (robot) ->
     PREFIX = 'thursday'
     GUESTS_SET = "#{PREFIX}:guests"
     GUESTS_IMAGES_HASH = "#{PREFIX}:images"
+    PLACES_SET = "#{PREFIX}:places"
     SLACK_API_TOKEN = process.env.SLACK_API_TOKEN
 
     okays = ['Хорошо', 'Ясно', 'Добро']
+    confirmation = ['Помедленнее, я записываю... Записал!', 'Принято!', 'Добавлено в список!']
 
     # robot.hear /list/i, (res) ->
     #     res.send "No meetups for " + res.message.user.name
@@ -52,3 +54,15 @@ module.exports = (robot) ->
                     # list = reply.map (name) -> "@#{name}"
                     res.send "Идут " + reply[0...-1].join(', ') +
                         " и " + reply[reply.length - 1]
+
+    robot.respond /предлагаю/i, (res) ->
+        [_, place] = res.message.match /предлагаю(.*)/
+        client.sadd PLACES_SET, place.trim(), (err) ->
+            res.send res.random confirmation
+
+    robot.respond /куда ид(е|ё)м/i, (res) ->
+        client.smembers PLACES_SET, (err, reply) ->
+            switch reply.length
+                when 0 then res.send "Пока у меня нет идей!"
+                when 1 then res.send "Кто-то предложил - #{reply[0]}"
+                else res.send "Есть предложения посетить следующие места:\n#{ reply.map((place) -> "- #{place}").join("\n") }"
