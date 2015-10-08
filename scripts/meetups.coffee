@@ -56,7 +56,7 @@ module.exports = (robot) ->
                         " и " + reply[reply.length - 1]
 
     robot.respond /предлагаю/i, (res) ->
-        _, place = robot.respond.match(/^.* предлагаю (.*)/)
+        [_, place] = robot.respond.match(/предлагаю (.*)/)
         client.sadd PLACES_SET, place, (err) ->
             res.send res.random confirmation
 
