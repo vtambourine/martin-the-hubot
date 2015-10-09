@@ -2,15 +2,20 @@
 #   Управление будущими мероприятиями и приглашением участников.
 #
 # Commands:
-#   hubot я иду - Записаться на Четверг
-#   hubot я не иду - Удалить себя из списка гостей
-#   hubot кто идет?  - Показать список гостей
-#   hubot предлагаю Место  - Добавить запись в список возможных мест для посещения
-#   hubot куда идем?  - Показать список предложенных мест
+#   Мартин, я иду - Записаться на Четверг
+#   Мартин, я не иду - Удалить себя из списка гостей
+#   Мартин, кто идет?  - Показать список гостей
+#   Мартин, предлагаю Place  - Добавить запись в список возможных мест для посещения
+#   Мартин, я за Place  - Проголосовать за определенное Place
+#   Мартин, я против Place  - Проголосовать против определенного Place
+#   Мартин, куда идем?  - Показать список предложенных мест
 #
 # Notes:
 
-Redis = require 'redis'
+_       = require 'lodash-node'
+Redis   = require 'redis'
+MsgPack = require 'msgpack'
+
 
 module.exports = (robot) ->
     client = Redis.createClient()
@@ -22,8 +27,10 @@ module.exports = (robot) ->
 
     okays = ['Хорошо', 'Ясно', 'Добро']
     confirmation = ['Помедленнее, я записываю... Записал!', 'Принято!', 'Добавлено в список!']
+    already_added = ['Упс... Кто-то опередил тебя дружок!', 'Подобная позиция уже имеется.']
     reject = ['К сожалению, я не смог найти это место в списке :(']
     add_one = ['+1', 'Добавил!', 'Инкрементировал!']
+    remove_one = ['-1', 'Убрал!', 'Декрементировал!']
 
     # robot.hear /list/i, (res) ->
     #     res.send "No meetups for " + res.message.user.name
@@ -62,33 +69,51 @@ module.exports = (robot) ->
                         " и " + reply[reply.length - 1]
 
     robot.respond /предлагаю/i, (res) ->
-        [_, place] = res.message.match /предлагаю(.*)/
+        place = res.message.match(/предлагаю(.*)/)[1]
         place_name = place.trim().toLowerCase()
-        client.zscore [PLACES_SET, place_name], (err, count) ->
-          count = if count then parseInt(count) + 1 else 1
-          client.zadd [PLACES_SET, count, place_name], (err) ->
-              res.send res.random confirmation
+        guest_name = res.message.user.name
+        client.get PLACES_SET, (err, msg_places) ->
+            places = if msg_places then JSON.parse(msg_places) else {}
+            if places[place_name]
+               res.send res.random already_added
+            else
+                places[place_name] = []
+                client.set PLACES_SET, JSON.stringify(places), (err) ->
+                    res.send res.random confirmation
 
     robot.respond /(я )?за/i, (res) ->
-        [_, place] = res.message.match /за(.*)/
+        place = res.message.match(/за(.*)/)[1]
         place_name = place.trim().toLowerCase()
-        client.zscore [PLACES_SET, place_name], (err, count) ->
-          if count
-            client.zadd [PLACES_SET, parseInt(count) + 1, place_name], (err) ->
-                res.send res.random add_one
-          else
-            res.send reject
+        guest_name = res.message.user.name
+        client.get PLACES_SET, (err, msg_places) ->
+            places = if msg_places then JSON.parse(msg_places) else {}
+            if places[place_name]
+                for key in _.keys(places)
+                  places[key] = _.without(places[key], '@' + guest_name)
+                places[place_name] = _.union(places[place_name], ['@' + guest_name])
+                client.set PLACES_SET, JSON.stringify(places), (err) ->
+                    res.send res.random add_one
+            else
+              res.send reject
+
+    robot.respond /(я )?против/i, (res) ->
+        place = res.message.match(/против(.*)/)[1]
+        place_name = place.trim().toLowerCase()
+        guest_name = res.message.user.name
+        client.get PLACES_SET, (err, msg_places) ->
+            places = if msg_places then JSON.parse(msg_places) else {}
+            if places[place_name]
+                places[place_name] = _.without(places[place_name], '@' + guest_name)
+                client.set PLACES_SET, JSON.stringify(places), (err) ->
+                    res.send res.random remove_one
+            else
+              res.send reject
 
     robot.respond /куда ид(е|ё)м/i, (res) ->
-        params = [ PLACES_SET, '+inf', '-inf', 'WITHSCORES']
-        client.zrevrangebyscore params, (err, reply) ->
-            group_by_score = []
-            reply.map (elem, i) ->
-              if (i + 1) % 2
-                place_name = reply[i][0].toUpperCase() + reply[i][1..-1]
-                votes = reply[i+1]
-                group_by_score.push([place_name, votes])
-            switch group_by_score.length
+        client.get PLACES_SET, (err, msg_places) ->
+            places = if msg_places then JSON.parse(msg_places) else {}
+            keys = _.keys(places)
+            switch keys.length
                 when 0 then res.send "Пока у меня нет идей!"
-                when 1 then res.send "Кто-то предложил - #{group_by_score[0][0]}(#{ group_by_score[0][1] })"
-                else res.send "Есть предложения посетить следующие места:\n#{ group_by_score.map((place) -> "#{place[1]}: #{place[0]}").join("\n") }"
+                when 1 then res.send "Кто-то предложил - #{keys[0]})"
+                else res.send "Есть предложения посетить следующие места:\n#{ _.map(keys, (place) -> "- \x02#{ place }\x02#{'(' + ['@nikneroz', '@hello'].join(', ') + ')' if places[place]}").join("\n") }"
