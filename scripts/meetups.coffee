@@ -116,4 +116,4 @@ module.exports = (robot) ->
             switch keys.length
                 when 0 then res.send "Пока у меня нет идей!"
                 when 1 then res.send "Кто-то предложил - #{keys[0]})"
-                else res.send "Есть предложения посетить следующие места:\n#{ _.map(keys, (place) -> "- \x02#{ place }\x02#{'(' + ['@nikneroz', '@hello'].join(', ') + ')' if places[place]}").join("\n") }"
+                else res.send "Есть предложения посетить следующие места:\n#{ _.map(keys, (place) -> "- \x02#{ place }\x02#{'(' + places[place].join(', ') + ')' if places[place]}").join("\n") }"
