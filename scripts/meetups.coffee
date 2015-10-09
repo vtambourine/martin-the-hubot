@@ -12,9 +12,8 @@
 #
 # Notes:
 
-_       = require 'lodash-node'
-Redis   = require 'redis'
-MsgPack = require 'msgpack'
+_     = require 'lodash-node'
+Redis = require 'redis'
 
 
 module.exports = (robot) ->
