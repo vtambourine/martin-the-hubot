@@ -18,7 +18,15 @@ module.exports = (robot) ->
     PLACES_SET = "#{PREFIX}:places"
     SLACK_API_TOKEN = process.env.SLACK_API_TOKEN
 
-    okays = ['Хорошо', 'Ясно', 'Добро']
+    okays = [
+      'Хорошо',
+      'Ясно',
+      'Добро',
+      'Здорово!',
+      'Буду рад тебя видеть',
+      'Хотите о чем-нибудь рассказать?',
+      'Расскажете о что-нибудь?'
+    ]
     confirmation = ['Помедленнее, я записываю... Записал!', 'Принято!', 'Добавлено в список!']
 
     # robot.hear /list/i, (res) ->
